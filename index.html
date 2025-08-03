@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Reproductor de Audio de YouTube</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #1976d2;
+            --primary-hover: #1565c0;
+            --secondary-color: #757575;
+            --secondary-hover: #616161;
+            --danger-color: #d32f2f;
+            --danger-hover: #b71c1c;
+            --success-color: #388e3c;
+            --error-color: #d32f2f;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 24px rgba(0,0,0,.09);
+            --transition: all 0.3s ease;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f5f5f5;
+            color: #222;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            line-height: 1.6;
+        }
+        
+        .container {
+            width: 600px;
+            padding: 32px;
+            background: #fff;
+            margin: 40px auto;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            text-align: center;
+        }
+        
+        h2, h3 {
+            color: #333;
+            margin-top: 0;
+        }
+        
+        h2 {
+            margin-bottom: 24px;
+        }
+        
+        h3 {
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+        }
+        
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            font-size: 1em;
+            border-radius: var(--border-radius);
+            border: 1px solid #ddd;
+            transition: var(--transition);
+            box-sizing: border-box;
+        }
+        
+        input[type="text"]:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+        }
+        
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 18px;
+            justify-content: center;
+        }
+        
+        button {
+            padding: 12px 20px;
+            background: var(--primary-color);
+            color: #fff;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 1em;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        button:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button.secondary {
+            background: var(--secondary-color);
+        }
+        
+        button.secondary:hover {
+            background: var(--secondary-hover);
+        }
+        
+        button.danger {
+            background: var(--danger-color);
+        }
+        
+        button.danger:hover {
+            background: var(--danger-hover);
+        }
+        
+        .audio-container {
+            width: 100%;
+            margin-top: 18px;
+        }
+        
+        /* Oculta el vídeo, solo deja los controles */
+        iframe {
+            width: 100%;
+            height: 56px;
+            pointer-events: none;
+            opacity: 0.01;
+            position: absolute;
+            left: -9999px;
+        }
+        
+        .visible-controls {
+            margin-top: 16px;
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .message {
+            margin-bottom: 16px;
+            padding: 10px;
+            border-radius: var(--border-radius);
+            font-weight: 500;
+        }
+        
+        .error {
+            background-color: rgba(211, 47, 47, 0.1);
+            color: var(--error-color);
+        }
+        
+        .success {
+            background-color: rgba(56, 142, 60, 0.1);
+            color: var(--success-color);
+        }
+        
+        .saved-list {
+            width: 100%;
+            margin-top: 20px;
+            text-align: left;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        
+        .list-container {
+            max-height: 400px;
+            overflow-y: auto;
+            transition: max-height 0.3s ease, opacity 0.3s ease;
+        }
+        
+        .list-container.hidden {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+        }
+        
+        .saved-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: var(--transition);
+        }
+        
+        .saved-item:hover {
+            background-color: #f9f9f9;
+        }
+        
+        .song-title {
+            color: var(--primary-color);
+            cursor: pointer;
+            flex-grow: 1;
+            text-align: left;
+            padding: 8px;
+            margin-right: 10px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            transition: var(--transition);
+            word-break: break-word;
+        }
+        
+        .song-title:hover {
+            text-decoration: underline;
+            background-color: rgba(25, 118, 210, 0.05);
+        }
+        
+        .song-title.editing {
+            border: 1px solid #ddd;
+            background: #fff;
+        }
+        
+        .saved-item button {
+            margin: 0 0 0 8px;
+            padding: 6px 12px;
+            min-width: 80px;
+        }
+        
+        .saved-item-actions {
+            display: flex;
+            flex-shrink: 0;
+        }
+        
+        .toggle-icon {
+            transition: transform 0.3s ease;
+        }
+        
+        .toggle-icon.rotated {
+            transform: rotate(180deg);
+        }
+        
+        @media (max-width: 700px) {
+            .container {
+                width: calc(100% - 40px);
+                padding: 20px;
+                margin: 20px auto;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            button {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .saved-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            
+            .saved-item-actions {
+                margin-top: 8px;
+                width: 100%;
+                justify-content: flex-end;
+            }
+            
+            .song-title {
+                margin-right: 0;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Reproductor de Audio de YouTube</h2>
+        <input type="text" id="youtubeUrl" placeholder="Pega aquí el enlace de YouTube (ej: https://youtu.be/ID)">
+        
+        <div class="button-group">
+            <button id="playBtn">
+                <i class="fas fa-play"></i> Reproducir
+            </button>
+            <button id="saveBtn" class="secondary">
+                <i class="fas fa-save"></i> Guardar
+            </button>
+            <button id="exportBtn" class="secondary">
+                <i class="fas fa-file-export"></i> Exportar
+            </button>
+            <button id="importBtn" class="secondary">
+                <i class="fas fa-file-import"></i> Importar
+            </button>
+            <input type="file" id="importFile" style="display: none;" accept=".json">
+        </div>
+        
+        <div id="errorMsg" class="message error" style="display: none;"></div>
+        <div id="successMsg" class="message success" style="display: none;"></div>
+        
+        <div class="audio-container" id="audioContainer"></div>
+        <div class="visible-controls">
+            <p>El audio se reproduce en segundo plano. Usa los controles de YouTube si aparecen.</p>
+        </div>
+        
+        <div class="saved-list" id="savedList">
+            <h3 id="toggleListBtn">
+                <span>Lista de reproducción</span>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </h3>
+            <div class="list-container" id="listContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        // Elementos del DOM
+        const elements = {
+            playBtn: document.getElementById('playBtn'),
+            saveBtn: document.getElementById('saveBtn'),
+            exportBtn: document.getElementById('exportBtn'),
+            importBtn: document.getElementById('importBtn'),
+            importFile: document.getElementById('importFile'),
+            youtubeUrl: document.getElementById('youtubeUrl'),
+            audioContainer: document.getElementById('audioContainer'),
+            errorMsg: document.getElementById('errorMsg'),
+            successMsg: document.getElementById('successMsg'),
+            listContainer: document.getElementById('listContainer'),
+            toggleListBtn: document.getElementById('toggleListBtn'),
+            savedList: document.getElementById('savedList')
+        };
+
+        // Estado de la aplicación
+        const state = {
+            savedSongs: JSON.parse(localStorage.getItem('andartubeSongs')) || [],
+            isListVisible: true
+        };
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', () => {
+            renderList();
+            setupEventListeners();
+        });
+
+        // Configuración de event listeners
+        function setupEventListeners() {
+            elements.playBtn.addEventListener('click', playCurrentUrl);
+            elements.saveBtn.addEventListener('click', saveCurrentUrl);
+            elements.exportBtn.addEventListener('click', exportPlaylist);
+            elements.importBtn.addEventListener('click', () => elements.importFile.click());
+            elements.importFile.addEventListener('change', handleFileImport);
+            elements.toggleListBtn.addEventListener('click', toggleListVisibility);
+            elements.youtubeUrl.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') playCurrentUrl();
+            });
+        }
+
+        // Funciones principales
+        function playCurrentUrl() {
+            const url = elements.youtubeUrl.value.trim();
+            if (!url) {
+                showError('Por favor, introduce una URL de YouTube');
+                return;
+            }
+            playAudio(url);
+        }
+
+        function saveCurrentUrl() {
+            const url = elements.youtubeUrl.value.trim();
+            const videoId = extractVideoId(url);
+            
+            if (!videoId) {
+                showError('URL de YouTube no válida. Ejemplo: https://www.youtube.com/watch?v=ID');
+                return;
+            }
+            
+            // Verificar si ya existe
+            const exists = state.savedSongs.some(song => song.url === url);
+            if (exists) {
+                showError('Esta canción ya está en la lista');
+                return;
+            }
+            
+            const newSong = {
+                url: url,
+                title: `Canción ${state.savedSongs.length + 1}`
+            };
+            
+            state.savedSongs.push(newSong);
+            saveToLocalStorage();
+            renderList();
+            showSuccess('Canción añadida a la lista');
+        }
+
+        function exportPlaylist() {
+            if (state.savedSongs.length === 0) {
+                showError('No hay canciones para exportar');
+                return;
+            }
+            
+            const data = JSON.stringify(state.savedSongs, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'andartube_playlist.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showSuccess('Lista exportada correctamente');
+        }
+
+        function handleFileImport(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedSongs = JSON.parse(e.target.result);
+                    if (!Array.isArray(importedSongs)) {
+                        showError('Formato de archivo inválido: debe ser un array de canciones');
+                        return;
+                    }
+                    
+                    let importedCount = 0;
+                    importedSongs.forEach(importedSong => {
+                        const videoId = extractVideoId(importedSong.url);
+                        if (videoId && !state.savedSongs.some(song => song.url === importedSong.url)) {
+                            state.savedSongs.push({
+                                url: importedSong.url,
+                                title: importedSong.title || `Canción ${state.savedSongs.length + 1}`
+                            });
+                            importedCount++;
+                        }
+                    });
+                    
+                    if (importedCount > 0) {
+                        saveToLocalStorage();
+                        renderList();
+                        showSuccess(`Se importaron ${importedCount} canciones`);
+                    } else {
+                        showError('No se importaron canciones (posibles duplicados)');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    showError('Error al leer el archivo. Asegúrate de que es un JSON válido.');
+                }
+            };
+            reader.onerror = () => showError('Error al leer el archivo');
+            reader.readAsText(file);
+            elements.importFile.value = ''; // Reset para permitir re-importar el mismo archivo
+        }
+
+        function toggleListVisibility() {
+            state.isListVisible = !state.isListVisible;
+            elements.listContainer.classList.toggle('hidden', !state.isListVisible);
+            
+            const icon = elements.toggleListBtn.querySelector('.toggle-icon');
+            icon.classList.toggle('rotated', !state.isListVisible);
+        }
+
+        // Funciones de renderizado
+        function renderList() {
+            elements.listContainer.innerHTML = '';
+            
+            if (state.savedSongs.length === 0) {
+                elements.listContainer.innerHTML = '<p style="text-align: center; color: #666;">No hay canciones guardadas</p>';
+                return;
+            }
+            
+            state.savedSongs.forEach((song, index) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'saved-item';
+                
+                const titleSpan = document.createElement('span');
+                titleSpan.className = 'song-title';
+                titleSpan.textContent = song.title;
+                titleSpan.onclick = () => {
+                    elements.youtubeUrl.value = song.url;
+                    playAudio(song.url);
+                };
+                
+                // Hacer el título editable al hacer doble clic
+                titleSpan.ondblclick = function() {
+                    this.contentEditable = true;
+                    this.classList.add('editing');
+                    this.focus();
+                    
+                    const range = document.createRange();
+                    range.selectNodeContents(this);
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                    
+                    const saveEdit = () => {
+                        this.contentEditable = false;
+                        this.classList.remove('editing');
+                        const newTitle = this.textContent.trim();
+                        
+                        if (newTitle && newTitle !== song.title) {
+                            song.title = newTitle;
+                            saveToLocalStorage();
+                            showSuccess('Título actualizado');
+                        } else {
+                            this.textContent = song.title; // Revertir si está vacío
+                        }
+                        
+                        this.removeEventListener('blur', saveEdit);
+                        this.removeEventListener('keydown', handleKeyDown);
+                    };
+                    
+                    const handleKeyDown = (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            saveEdit();
+                        } else if (e.key === 'Escape') {
+                            this.textContent = song.title;
+                            saveEdit();
+                        }
+                    };
+                    
+                    this.addEventListener('blur', saveEdit);
+                    this.addEventListener('keydown', handleKeyDown);
+                };
+                
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'saved-item-actions';
+                
+                const editBtn = document.createElement('button');
+                editBtn.className = 'secondary';
+                editBtn.innerHTML = '<i class="fas fa-edit"></i>';
+                editBtn.title = 'Editar título';
+                editBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    titleSpan.dispatchEvent(new MouseEvent('dblclick'));
+                };
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'danger';
+                deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                deleteBtn.title = 'Eliminar canción';
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (confirm(`¿Eliminar "${song.title}" de la lista?`)) {
+                        state.savedSongs.splice(index, 1);
+                        saveToLocalStorage();
+                        renderList();
+                        showSuccess('Canción eliminada');
+                    }
+                };
+                
+                actionsDiv.appendChild(editBtn);
+                actionsDiv.appendChild(deleteBtn);
+                itemDiv.appendChild(titleSpan);
+                itemDiv.appendChild(actionsDiv);
+                elements.listContainer.appendChild(itemDiv);
+            });
+        }
+
+        // Funciones de utilidad
+        function playAudio(url) {
+            clearMessages();
+            elements.audioContainer.innerHTML = '';
+            const videoId = extractVideoId(url);
+            
+            if (!videoId) {
+                showError('URL de YouTube no válida. Ejemplo: https://www.youtube.com/watch?v=ID');
+                return;
+            }
+            
+                  // Actualizar el campo de texto con la URL que se está reproduciendo
+            elements.youtubeUrl.value = url;
+            
+            // Crear iframe para reproducir el audio
+            elements.audioContainer.innerHTML = `
+                <iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&modestbranding=1"
+                    frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowfullscreen></iframe>
+            `;
+            
+            // Mostrar la canción que se está reproduciendo
+            const currentSong = state.savedSongs.find(song => song.url.includes(videoId));
+            if (currentSong) {
+                showSuccess(`Reproduciendo: ${currentSong.title}`);
+            }
+        }
+
+        function extractVideoId(url) {
+            if (!url) return null;
+            
+            // Patrones de URL de YouTube
+            const patterns = [
+                /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/,
+                /^.*(youtube.com\/shorts\/)([^#&?]*).*/,
+                /^.*(youtube.com\/live\/)([^#&?]*).*/
+            ];
+            
+            for (const pattern of patterns) {
+                const match = url.match(pattern);
+                if (match && match[2] && match[2].length === 11) {
+                    return match[2];
+                }
+            }
+            
+            return null;
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('andartubeSongs', JSON.stringify(state.savedSongs));
+        }
+
+        function showError(message) {
+            elements.errorMsg.textContent = message;
+            elements.errorMsg.style.display = 'block';
+            elements.successMsg.style.display = 'none';
+            
+            setTimeout(() => {
+                elements.errorMsg.style.display = 'none';
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            elements.successMsg.textContent = message;
+            elements.successMsg.style.display = 'block';
+            elements.errorMsg.style.display = 'none';
+            
+            setTimeout(() => {
+                elements.successMsg.style.display = 'none';
+            }, 3000);
+        }
+
+        function clearMessages() {
+            elements.errorMsg.style.display = 'none';
+            elements.successMsg.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
